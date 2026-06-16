@@ -150,11 +150,8 @@ function draw() {
   if (isStarted) { currentBG = lerpColor(currentBG, color(0), 0.08); menuAlpha = lerp(menuAlpha, 0, 0.08); } 
   else { currentBG = lerpColor(currentBG, color(8, 12, 18), 0.05); menuAlpha = lerp(menuAlpha, 255, 0.05); }
   background(currentBG);
-  
   let centerX = width / 2;
   let centerY = height / 2;
-
-  // ΕΠΑΝΑΦΟΡΑ ΤΟΥ ΕΦΕ ΕΚΛΕΙΨΗΣ
   if (menuAlpha > 0.5) {
     noStroke();
     for (let s of stars) {
@@ -168,7 +165,6 @@ function draw() {
     ellipse(centerX, eclipseY, eclipseRadius * 2);
     noStroke();
   }
-
   if (!isStarted) {
     textAlign(CENTER, CENTER); fill(220, 235, 255, 245); textSize(25);
     text("Connect your skin to the sky.", centerX, centerY - 100);
@@ -176,51 +172,42 @@ function draw() {
     text("L O C A L   A I R   P O L L U T I O N   D I S R U P T S   T H E   S A T E L L I T E   B E A M S", centerX, centerY - 45);
     return;
   }
-
   push();
   translate(centerX, centerY);
   scale(userZoom);
   stroke(0, 120, 255, 40); noFill(); strokeWeight(1.5); circle(0, 0, fixedRadius * 2);
-  
   let targetCountry = countryData[currentCountryName];
   for (let satData of REAL_SATELLITES) {
-    let angle = (Date.now() / satData.period) * TWO_PI + satData.phase;
-    let dLat = sin(angle) * satData.inclination - targetCountry.lat;
-    let dLon = (((angle % TWO_PI) - PI) * (180 / PI)) - targetCountry.lon;
-    if (dLon > 180) dLon -= 360; else if (dLon < -180) dLon += 360;
-    if (sqrt(dLat * dLat + dLon * dLon) < 45) {
-      drawRealisticSatellite(satData.name, dLon * 5, -dLat * 5, satData, targetCountry);
-    }
+    drawRealisticSatellite(satData.name, satData, targetCountry);
   }
   pop();
 }
 
-function drawRealisticSatellite(name, currentX, currentY, satData, country) {
-  let disruption = constrain(map(pm25, 2, 45, 0, 1), 0, 1);
-  let nextX = null, nextY = null;
+function getSatPos(time, satData, country) {
+  let angle = (time / satData.period) * TWO_PI + satData.phase;
+  let lon = (((((angle % TWO_PI) - PI) * (180 / PI)) - country.lon + 540) % 360 - 180);
+  let lat = sin(angle) * satData.inclination - country.lat;
+  return { x: lon * 5, y: -lat * 5 };
+}
 
+function drawRealisticSatellite(name, satData, country) {
+  let disruption = constrain(map(pm25, 2, 45, 0, 1), 0, 1);
+  let currentPos = getSatPos(Date.now(), satData, country);
   for (let f = 0; f < 65; f++) {
-    let anglePast = ((Date.now() - f * 18000) / satData.period) * TWO_PI + satData.phase;
-    let histX = (((((anglePast % TWO_PI) - PI) * (180 / PI)) - country.lon + 540) % 360 - 180) * 5;
-    let histY = -(sin(anglePast) * satData.inclination - country.lat) * 5;
-    
-    if (dist(histX, histY, 0, 0) < fixedRadius) {
-      if (nextX !== null) {
-        let flicker = noise(satData.phase + frameCount * 0.1, f * 0.1);
-        let alphaMod = (disruption > 0.2 && flicker < disruption * 0.6) ? 0.05 : map(flicker, 0, 1, 1 - disruption, 1.0);
-        let baseAlpha = map(pow(1 - (f/65), 1.8), 0, 1, 0, 255) * alphaMod;
-        
-        stroke(0, 100, 255, baseAlpha * 0.2); strokeWeight(satelliteThickness * (1 - f/65) * 3.5); line(histX, histY, nextX, nextY);
-        stroke(0, 180, 255, baseAlpha * 0.6); strokeWeight(satelliteThickness * (1 - f/65) * 1.5); line(histX, histY, nextX, nextY);
-        stroke(255, 255, 255, baseAlpha * 0.9); strokeWeight(satelliteThickness * (1 - f/65) * 0.4); line(histX, histY, nextX, nextY);
-      }
-      nextX = histX; nextY = histY;
+    let pos1 = getSatPos(Date.now() - f * 18000, satData, country);
+    let pos2 = getSatPos(Date.now() - (f + 1) * 18000, satData, country);
+    if (dist(pos1.x, pos1.y, 0, 0) < fixedRadius && dist(pos2.x, pos2.y, 0, 0) < fixedRadius) {
+      let flicker = noise(satData.phase + frameCount * 0.1, f * 0.1);
+      let alphaMod = (disruption > 0.2 && flicker < disruption * 0.6) ? 0.05 : map(flicker, 0, 1, 1 - disruption, 1.0);
+      let baseAlpha = map(pow(1 - (f/65), 1.2), 0, 1, 0, 255) * alphaMod;
+      stroke(0, 100, 255, baseAlpha * 0.2); strokeWeight(satelliteThickness * (1 - f/65) * 3.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
+      stroke(0, 180, 255, baseAlpha * 0.6); strokeWeight(satelliteThickness * (1 - f/65) * 1.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
+      stroke(255, 255, 255, baseAlpha * 0.9); strokeWeight(satelliteThickness * (1 - f/65) * 0.4); line(pos1.x, pos1.y, pos2.x, pos2.y);
     }
   }
-  
-  if (dist(currentX, currentY, 0, 0) < fixedRadius) {
+  if (dist(currentPos.x, currentPos.y, 0, 0) < fixedRadius) {
     fill(130, 225, 255, 200);
-    noStroke(); textFont('Courier New'); textSize(9); text(name, currentX + 10, currentY);
+    noStroke(); textFont('Courier New'); textSize(9); text(name, currentPos.x + 10, currentPos.y);
   }
 }
 
@@ -241,5 +228,3 @@ function fetchAirData(lat, lon) {
 
 function keyPressed() { if (key === 'm' || key === 'M') { isStarted = false; countrySelect.show(); hideZoomPanel(); } }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); eclipseRadius = max(width, height) * 0.9; eclipseY = height + eclipseRadius * 0.72; countrySelect.position(width / 2, height / 2 + 35); }
-
-
