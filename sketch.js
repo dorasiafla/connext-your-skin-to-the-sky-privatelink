@@ -89,12 +89,10 @@ function setup() {
   countrySelect.style('outline', 'none');
   countrySelect.style('cursor', 'pointer');
   countrySelect.style('text-align', 'center');
-  
   injectCSS();
   countrySelect.option("SELECT A DESTINATION...");
   countrySelect.changed(onCountryChange);
   buildZoomPanel();
-  
   fetch('https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-geo-coordinates.json')
     .then(res => res.json())
     .then(data => {
@@ -191,14 +189,14 @@ function getSatPos(time, satData, country) {
 }
 
 function drawRealisticSatellite(name, satData, country) {
-  let disruption = constrain(map(pm25, 2, 45, 0, 1), 0, 1);
+  let disruption = constrain(map(pm25, 0, 30, 0.1, 0.9), 0.1, 0.9);
   let currentPos = getSatPos(Date.now(), satData, country);
   for (let f = 0; f < 65; f++) {
     let pos1 = getSatPos(Date.now() - f * 18000, satData, country);
     let pos2 = getSatPos(Date.now() - (f + 1) * 18000, satData, country);
     if (dist(pos1.x, pos1.y, 0, 0) < fixedRadius && dist(pos2.x, pos2.y, 0, 0) < fixedRadius) {
       let flicker = noise(satData.phase + frameCount * 0.1, f * 0.1);
-      let alphaMod = (disruption > 0.2 && flicker < disruption * 0.6) ? 0.05 : map(flicker, 0, 1, 1 - disruption, 1.0);
+      let alphaMod = (flicker < disruption) ? map(flicker, 0, disruption, 0.05, 0.8) : 1.0;
       let baseAlpha = map(pow(1 - (f/65), 1.2), 0, 1, 0, 255) * alphaMod;
       stroke(0, 100, 255, baseAlpha * 0.2); strokeWeight(satelliteThickness * (1 - f/65) * 3.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
       stroke(0, 180, 255, baseAlpha * 0.6); strokeWeight(satelliteThickness * (1 - f/65) * 1.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
