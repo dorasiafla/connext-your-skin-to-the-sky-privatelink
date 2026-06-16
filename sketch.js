@@ -151,6 +151,10 @@ function draw() {
   else { currentBG = lerpColor(currentBG, color(8, 12, 18), 0.05); menuAlpha = lerp(menuAlpha, 255, 0.05); }
   background(currentBG);
   
+  let centerX = width / 2;
+  let centerY = height / 2;
+
+  // ΕΠΑΝΑΦΟΡΑ ΤΟΥ ΕΦΕ ΕΚΛΕΙΨΗΣ
   if (menuAlpha > 0.5) {
     noStroke();
     for (let s of stars) {
@@ -158,16 +162,23 @@ function draw() {
       fill(235, 228, 215, constrain(s.alpha + flicker, 10, 225) * (menuAlpha / 255));
       ellipse(s.x, s.y, s.size);
     }
+    fill(3, 6, 10, menuAlpha);
+    stroke(50, 80, 100, menuAlpha * 0.12);
+    strokeWeight(2);
+    ellipse(centerX, eclipseY, eclipseRadius * 2);
+    noStroke();
   }
 
   if (!isStarted) {
     textAlign(CENTER, CENTER); fill(220, 235, 255, 245); textSize(25);
-    text("Connect your skin to the sky.", width/2, height/2 - 100);
+    text("Connect your skin to the sky.", centerX, centerY - 100);
+    fill(160, 180, 200, 210); textSize(11);
+    text("L O C A L   A I R   P O L L U T I O N   D I S R U P T S   T H E   S A T E L L I T E   B E A M S", centerX, centerY - 45);
     return;
   }
 
   push();
-  translate(width/2, height/2);
+  translate(centerX, centerY);
   scale(userZoom);
   stroke(0, 120, 255, 40); noFill(); strokeWeight(1.5); circle(0, 0, fixedRadius * 2);
   
@@ -196,7 +207,7 @@ function drawRealisticSatellite(name, currentX, currentY, satData, country) {
     if (dist(histX, histY, 0, 0) < fixedRadius) {
       if (nextX !== null) {
         let flicker = noise(satData.phase + frameCount * 0.1, f * 0.1);
-        let alphaMod = (disruption > 0.3 && flicker < disruption * 0.5) ? 0.05 : map(flicker, 0, 1, 1 - disruption, 1.0);
+        let alphaMod = (disruption > 0.2 && flicker < disruption * 0.6) ? 0.05 : map(flicker, 0, 1, 1 - disruption, 1.0);
         let baseAlpha = map(pow(1 - (f/65), 1.8), 0, 1, 0, 255) * alphaMod;
         
         stroke(0, 100, 255, baseAlpha * 0.2); strokeWeight(satelliteThickness * (1 - f/65) * 3.5); line(histX, histY, nextX, nextY);
@@ -206,8 +217,9 @@ function drawRealisticSatellite(name, currentX, currentY, satData, country) {
       nextX = histX; nextY = histY;
     }
   }
+  
   if (dist(currentX, currentY, 0, 0) < fixedRadius) {
-    fill(130, 225, 255, (noise(frameCount * 0.05) > disruption * 0.8) ? 200 : 50);
+    fill(130, 225, 255, 200);
     noStroke(); textFont('Courier New'); textSize(9); text(name, currentX + 10, currentY);
   }
 }
@@ -228,4 +240,6 @@ function fetchAirData(lat, lon) {
 }
 
 function keyPressed() { if (key === 'm' || key === 'M') { isStarted = false; countrySelect.show(); hideZoomPanel(); } }
-function windowResized() { resizeCanvas(windowWidth, windowHeight); }
+function windowResized() { resizeCanvas(windowWidth, windowHeight); eclipseRadius = max(width, height) * 0.9; eclipseY = height + eclipseRadius * 0.72; countrySelect.position(width / 2, height / 2 + 35); }
+
+
