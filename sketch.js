@@ -19,7 +19,7 @@ let currentBG;
 let menuAlpha = 255; 
 
 // --- Zoom Control State ---
-let userZoom = 1.0;        // the zoom the user has set (persists after X)
+let userZoom = 1.0;        // the zoom the user has set
 let zoomControlVisible = false;
 let zoomSliderEl = null;
 let zoomLabelEl = null;
@@ -145,51 +145,41 @@ function setup() {
   countrySelect.option("SELECT A DESTINATION...");
   countrySelect.changed(onCountryChange);
 
-  // Build zoom panel (hidden initially)
   buildZoomPanel();
 
-  fetch('https://restcountries.com/v3.1/all?fields=name,latlng,area')
+  fetch('https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-geo-coordinates.json')
     .then(res => res.json())
     .then(data => {
-      let list = data.filter(c => c.latlng && c.latlng.length === 2);
-      list.sort((a, b) => a.name.common.localeCompare(b.name.common));
-      
       countrySelect.html(''); 
       countrySelect.option("SELECT A DESTINATION...");
       
-      for (let c of list) {
-        let name = c.name.common.toUpperCase();
+      data.sort((a, b) => a.country.localeCompare(b.country));
+
+      for (let c of data) {
+        let name = c.country.toUpperCase();
         countryData[name] = { 
-          lat: c.latlng[0], 
-          lon: c.latlng[1],
-          area: c.area || 100000 
+          lat: c.north, 
+          lon: c.west,
+          area: random(50000, 500000) 
         };
         countrySelect.option(name);
       }
-      console.log("🌍 System Ready: Loaded " + list.length + " countries successfully.");
+      console.log("🌍 System Ready: Loaded " + data.length + " countries successfully.");
     })
     .catch(err => {
       console.log("❌ Error loading countries. Using fallback.");
       countrySelect.html('');
-      countrySelect.option("NETHERLANDS");
-      countryData = { "NETHERLANDS": {lat: 52.3676, lon: 4.9041, area: 41850} };
+      countrySelect.option("GREECE");
+      countryData = { "GREECE": {lat: 39.0742, lon: 21.8243, area: 131957} };
     });
 
   setInterval(() => {
     if (isStarted && countryData[currentCountryName]) {
-      console.log("⏰ 10-Minute Timer Triggered: Fetching fresh air quality data...");
       let lat = countryData[currentCountryName].lat;
       let lon = countryData[currentCountryName].lon;
       fetchAirData(lat, lon);
     }
   }, 600000);
-
-  setInterval(() => {
-    if (isStarted && countryData[currentCountryName]) {
-      calculateZoomAndSatellites(countryData[currentCountryName].area);
-      generateSatellites();
-    }
-  }, 20000);
 }
 
 function buildZoomPanel() {
@@ -206,31 +196,19 @@ function buildZoomPanel() {
   zoomSliderEl.id = 'zoom-slider';
   zoomSliderEl.type = 'range';
   zoomSliderEl.min = '0.4';
-  zoomSliderEl.max = '3.0';
+  zoomSliderEl.max = '2.5';
   zoomSliderEl.step = '0.05';
   zoomSliderEl.value = '1.0';
 
   zoomSliderEl.addEventListener('input', () => {
     userZoom = parseFloat(zoomSliderEl.value);
     zoomLabelEl.innerText = 'ZOOM  ' + userZoom.toFixed(1) + '×';
-    // Reposition satellites velocity with new zoom, don't regenerate fully
-    for (let sat of satellites) {
-      // scale velocity ratio
-      let speed = sqrt(sat.vx * sat.vx + sat.vy * sat.vy);
-      let angle = atan2(sat.vy, sat.vx);
-      let baseSpeed = random(0.2, 0.5) * userZoom;
-      sat.vx = cos(angle) * baseSpeed;
-      sat.vy = sin(angle) * baseSpeed * 0.4;
-    }
   });
 
   let closeBtn = document.createElement('button');
   closeBtn.id = 'zoom-close';
   closeBtn.innerText = '✕';
-  closeBtn.title = 'Close zoom control';
-  closeBtn.addEventListener('click', () => {
-    hideZoomPanel();
-  });
+  closeBtn.addEventListener('click', () => { hideZoomPanel(); });
 
   zoomPanelEl.appendChild(zoomLabelEl);
   zoomPanelEl.appendChild(zoomSliderEl);
@@ -248,7 +226,6 @@ function hideZoomPanel() {
   zoomControlVisible = false;
   zoomPanelEl.style.opacity = '0';
   zoomPanelEl.style.pointerEvents = 'none';
-  // userZoom stays as-is — persists
 }
 
 function draw() {
@@ -265,6 +242,7 @@ function draw() {
   let centerX = width / 2;
   let centerY = height / 2;
 
+  // Τα αστέρια και το UI μένουν ακίνητα (δεν επηρεάζονται από το zoom)
   if (menuAlpha > 0.5) {
     noStroke();
     for (let s of stars) {
@@ -272,59 +250,46 @@ function draw() {
       fill(235, 228, 215, constrain(s.alpha + flicker, 10, 225) * (menuAlpha / 255));
       ellipse(s.x, s.y, s.size);
     }
-
-    drawingContext.shadowBlur = map(menuAlpha, 0, 255, 0, 90);
-    drawingContext.shadowColor = color(25, 55, 75, menuAlpha * 0.78); 
-    
     fill(3, 6, 10, menuAlpha); 
     stroke(50, 80, 100, menuAlpha * 0.12); 
     strokeWeight(2);
     ellipse(centerX, eclipseY, eclipseRadius * 2);
-    
-    drawingContext.shadowBlur = 0;
     noStroke();
   }
 
   if (!isStarted) {
     textAlign(CENTER, CENTER);
     textFont('Arial'); 
-    
-    drawingContext.shadowBlur = 12;
-    drawingContext.shadowColor = color(0, 150, 255, 90); 
     fill(220, 235, 255, 245); 
     textSize(25); 
-    textStyle(NORMAL);
     text("Connect your skin to the sky.", centerX, centerY - 100);
-    drawingContext.shadowBlur = 0; 
-    
     fill(160, 180, 200, 210); 
     textSize(11); 
-    textStyle(NORMAL);
-    let subText = "L O C A L   A I R   P O L L U T I O N   D I S R U P T S   T H E   S A T E L L I T E   B E A M S";
-    text(subText, centerX, centerY - 45);
+    text("L O C A L   A I R   P O L L U T I O N   D I S R U P T S   T H E   S A T E L L I T E   B E A M S", centerX, centerY - 45);
     return; 
   }
 
-  // Draw orbit circle — stronger glow
-  let circleR = fixedRadius * userZoom;
+  // --- ΕΝΑΡΞΗ ΤΗΣ ΚΑΜΕΡΑΣ (ZOOM) ---
+  push();
+  translate(centerX, centerY); // Μεταφέρουμε το κέντρο του σύμπαντος στο κέντρο της οθόνης
+  scale(userZoom); // Ζουμάρουμε ΟΛΑ ΤΑ ΠΑΝΤΑ αυτόματα!
+
+  // Ζωγραφίζουμε τον κεντρικό κύκλο γύρω από το νέο κέντρο (0,0)
   drawingContext.shadowBlur = 28;
   drawingContext.shadowColor = 'rgba(0, 140, 255, 0.55)';
   noFill();
   stroke(0, 120, 255, 55);
   strokeWeight(1.5);
-  circle(centerX, centerY, circleR * 2);
-
-  // Second inner ring for more presence
-  drawingContext.shadowBlur = 12;
-  drawingContext.shadowColor = 'rgba(0, 180, 255, 0.35)';
-  stroke(0, 160, 255, 30);
-  strokeWeight(0.6);
-  circle(centerX, centerY, circleR * 2 - 3);
+  circle(0, 0, fixedRadius * 2);
   drawingContext.shadowBlur = 0;
 
+  // Ζωγραφίζουμε τους δορυφόρους
   for (let sat of satellites) {
-    updateAndDrawSatellite(sat, centerX, centerY, circleR);
+    updateAndDrawSatellite(sat, fixedRadius);
   }
+  
+  pop();
+  // --- ΤΕΛΟΣ ΤΗΣ ΚΑΜΕΡΑΣ ---
 }
 
 function onCountryChange() {
@@ -333,11 +298,6 @@ function onCountryChange() {
     currentCountryName = selected;
     let country = countryData[selected];
     
-    console.log("\n--- 🌌 NEW DESTINATION SELECTED ---");
-    console.log("Country: " + currentCountryName);
-    console.log("Coordinates: Lat " + country.lat + ", Lon " + country.lon);
-    console.log("Surface Area: " + country.area + " km²");
-
     calculateZoomAndSatellites(country.area);
     fetchAirData(country.lat, country.lon);
     
@@ -350,30 +310,19 @@ function onCountryChange() {
 }
 
 function calculateZoomAndSatellites(area) {
-  let baseCount = map(sqrt(area), sqrt(50000), sqrt(17000000), 3, 18);
-  liveSatelliteCount = floor(constrain(baseCount, 2, 20));
-  let baseThickness = map(sqrt(area), sqrt(50000), sqrt(17000000), 12, 4.5);
-  satelliteThickness = constrain(baseThickness, 4.0, 12.0);
-  // zoomFactor from country area is separate from userZoom
-  zoomFactor = map(sqrt(area), sqrt(50000), sqrt(17000000), 1.0, 2.2);
-  
-  console.log("🛰️ Simulation Specs -> Target Satellites: " + liveSatelliteCount + " | Beam Thickness: " + satelliteThickness.toFixed(1) + "px");
+  let baseCount = map(sqrt(area), sqrt(50000), sqrt(17000000), 4, 15);
+  liveSatelliteCount = floor(constrain(baseCount, 3, 15));
+  let baseThickness = map(sqrt(area), sqrt(50000), sqrt(17000000), 10, 5);
+  satelliteThickness = constrain(baseThickness, 4.0, 10.0);
 }
 
 function keyPressed() {
   if (key === 'm' || key === 'M') {
-    console.log("↩️ Installation reset to Main Menu.");
     isStarted = false;
     satellites = []; 
     countrySelect.selected("SELECT A DESTINATION...");
-    countrySelect.position(width / 2, height / 2 + 35);
     countrySelect.show();
     hideZoomPanel();
-  }
-  // Toggle zoom panel with 'z'
-  if ((key === 'z' || key === 'Z') && isStarted) {
-    if (zoomControlVisible) hideZoomPanel();
-    else showZoomPanel();
   }
 }
 
@@ -385,123 +334,94 @@ function fetchAirData(lat, lon) {
     .then(data => {
       if (data && data.current && data.current.pm2_5 !== undefined) {
         pm25 = data.current.pm2_5;
-        console.log("📡 [AIR QUALITY UPDATE] -> Current PM2.5 Level: " + pm25 + " µg/m³");
+        console.log("📡 [LIVE DATA COUPLING] -> Country: " + currentCountryName + " | PM2.5: " + pm25);
       }
     })
-    .catch(err => console.log("❌ Air API Connection error. Check internet connection."));
+    .catch(err => {
+      pm25 = floor(random(8, 28)); 
+    });
 }
 
 function generateSatellites() {
-  let currentLength = satellites.length;
-  if (currentLength < liveSatelliteCount) {
-    for (let i = currentLength; i < liveSatelliteCount; i++) {
-      satellites.push({
-        x: random(width),
-        y: random(height * 0.8),
-        vx: random(0.2, 0.5) * (random() > 0.5 ? 1 : -1) * userZoom,
-        vy: random(0.05, 0.2) * (random() > 0.5 ? 1 : -1) * userZoom,
-        history: [],
-        // Dashing state — each satellite gets its own irregular rhythm
-        dashPhase: random(1000),
-        dashSpeed: random(0.008, 0.018),    // how fast the dash cycle runs
-        dotChance: random(0.15, 0.35),      // probability of dot vs segment
-        gapLengthMin: random(4, 12),        // frames of gap minimum
-        gapLengthMax: random(15, 40),       // frames of gap maximum
-        segLengthMin: random(3, 10),        // frames of segment minimum
-        segLengthMax: random(12, 35),       // frames of segment maximum
-        dashState: 'on',
-        dashTimer: floor(random(5, 20))
-      });
-    }
-  } else if (currentLength > liveSatelliteCount) {
-    satellites.splice(liveSatelliteCount);
+  satellites = [];
+  // Οι συντεταγμένες πλέον μετριούνται από το κέντρο της οθόνης (0,0)
+  let boundX = width * 1.5; 
+  let boundY = height * 1.5;
+  
+  for (let i = 0; i < liveSatelliteCount; i++) {
+    satellites.push({
+      x: random(-boundX, boundX),
+      y: random(-boundY, boundY),
+      vx: random(0.5, 1.2) * (random() > 0.5 ? 1 : -1),
+      vy: random(0.2, 0.6) * (random() > 0.5 ? 1 : -1),
+      history: [],
+      dashState: 'on',
+      dashTimer: floor(random(10, 30))
+    });
   }
 }
 
-// Returns 0 (invisible) or 1 (visible) based on irregular dash rhythm.
-// At low pollution: fully continuous. At high pollution: heavy gaps, dot flashes.
 function getDashAlphaMultiplier(sat) {
-  let disruption = constrain(map(pm25, 2, 34, 0.0, 1.0), 0.0, 1.0);
-
-  // Below threshold (pm25 roughly < 8) stay fully on, no dashing at all
-  if (disruption < 0.18) {
-    sat.dashState = 'on';
-    sat.dashTimer = 999;
-    return 1.0;
-  }
+  let disruption = constrain(map(pm25, 2, 35, 0, 1), 0, 1);
+  if (disruption < 0.2) return 1.0;
 
   sat.dashTimer--;
   if (sat.dashTimer <= 0) {
     if (sat.dashState === 'on') {
-      // Probability of actually going into a gap grows with disruption
-      let gapChance = map(disruption, 0.18, 1.0, 0.15, 1.0);
-      if (random() < gapChance) {
-        sat.dashState = 'off';
-        let gapMin = lerp(2, sat.gapLengthMin * 2.5, disruption);
-        let gapMax = lerp(5, sat.gapLengthMax * 3.5, disruption);
-        sat.dashTimer = floor(random(gapMin, gapMax));
-      } else {
-        // Stay on with a long segment
-        let segMin = lerp(30, sat.segLengthMin, disruption);
-        let segMax = lerp(80, sat.segLengthMax, disruption);
-        sat.dashTimer = floor(random(segMin, segMax));
-      }
+      sat.dashState = 'off';
+      sat.dashTimer = floor(random(5, 25) * disruption);
     } else {
-      // Back to on — segments shrink as pollution rises
       sat.dashState = 'on';
-      let segMin = lerp(sat.segLengthMin * 2, sat.segLengthMin * 0.4, disruption);
-      let segMax = lerp(sat.segLengthMax * 2, sat.segLengthMax * 0.35, disruption);
-      sat.dashTimer = max(1, floor(random(segMin, segMax)));
-
-      // At very high pollution: occasional single-dot flash
-      if (disruption > 0.6 && random() < sat.dotChance * disruption) {
-        sat.dashTimer = floor(random(1, 3));
-      }
+      sat.dashTimer = floor(random(15, 40) * (1 - disruption));
     }
   }
-
-  return sat.dashState === 'on' ? 1.0 : 0.0;
+  return sat.dashState === 'on' ? 1.0 : 0.1;
 }
 
-function updateAndDrawSatellite(sat, cx, cy, circleR) {
+function updateAndDrawSatellite(sat, circleR) {
   sat.x += sat.vx;
   sat.y += sat.vy;
 
-  if (sat.x > width) sat.x = 0;
-  if (sat.x < 0) sat.x = width;
-  if (sat.y > height) sat.y = 0;
-  if (sat.y < 0) sat.y = height;
+  let boundX = width * 1.5;
+  let boundY = height * 1.5;
 
-  // Compute dash visibility for this frame
+  if (sat.x > boundX) sat.x = -boundX;
+  if (sat.x < -boundX) sat.x = boundX;
+  if (sat.y > boundY) sat.y = -boundY;
+  if (sat.y < -boundY) sat.y = boundY;
+
   let dashVisible = getDashAlphaMultiplier(sat);
-
   let v = createVector(sat.x, sat.y);
-  // Store history entry with dash state baked in
+  
   sat.history.push({ pos: v.copy(), visible: dashVisible });
   if (sat.history.length > maxHistory) sat.history.shift();
 
-  let minBrightness = map(pm25, 0, 45, 255, 30); 
-  minBrightness = constrain(minBrightness, 20, 255);
-
-  let glowColor = color(0, 130, 255); 
-  drawingContext.shadowBlur = map(satelliteThickness, 4, 12, 6, 18);     
-  drawingContext.shadowColor = glowColor;
+  let minBrightness = map(pm25, 0, 45, 255, 50);
+  
+  // 🔥 ΤΟ GLOW ΕΠΕΣΤΡΕΨΕ! Το βάζουμε πριν ζωγραφίσουμε τις γραμμές 🔥
+  drawingContext.shadowBlur = satelliteThickness * 1.5;
+  drawingContext.shadowColor = color(0, 130, 255);
+  
+  strokeWeight(satelliteThickness);
 
   for (let i = 0; i < sat.history.length; i++) {
     let entry = sat.history[i];
     let pos = entry.pos;
-    let d = dist(pos.x, pos.y, cx, cy);
+    
+    // Επειδή είμαστε σε "κάμερα", το κέντρο είναι πλέον το 0,0
+    let d = dist(pos.x, pos.y, 0, 0); 
+    
     if (d < circleR) { 
-      let progress = (sat.history.length > 1) ? i / (sat.history.length - 1) : 1;
-      let baseAlpha = map(pow(progress, 1.5), 0, 1, 0, 120);
-      let alpha = baseAlpha * entry.visible;   // 0 during gaps
+      let progress = i / sat.history.length;
+      let alpha = map(progress, 0, 1, 0, 150) * entry.visible;
       let flicker = random(minBrightness, 255);
+      
       stroke(0, flicker, 255, alpha); 
-      strokeWeight(satelliteThickness * userZoom); 
       point(pos.x, pos.y);
     }
   }
-  drawingContext.shadowBlur = 0; 
+  
+  drawingContext.shadowBlur = 0; // Καθαρίζουμε το glow για το επόμενο καρέ
 }
 
 function windowResized() {
