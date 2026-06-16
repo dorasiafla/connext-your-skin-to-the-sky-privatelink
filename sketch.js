@@ -34,7 +34,7 @@ const REAL_SATELLITES = [
   { name: "SENTINEL-2A", period: 6000000, inclination: 98.5, phase: 1.5 },
   { name: "SENTINEL-2B", period: 6000000, inclination: 98.5, phase: 3.6 },
   { name: "SENTINEL-3A", period: 6060000, inclination: 98.6, phase: 5.1 },
-  { name: "SENTINEL-5P", period: 6060000, inclination: 98.7, phase: 2.3 },
+  { name: "SENTINEL-3P", period: 6060000, inclination: 98.7, phase: 2.3 },
   { name: "GPM-CORE", period: 5590000, inclination: 65.0, phase: 1.7 },
   { name: "CRYOSAT 2", period: 6000000, inclination: 92.0, phase: 5.3 },
   { name: "CHUANXIN-16", period: 5800000, inclination: 50.0, phase: 2.4 },
@@ -157,11 +157,26 @@ function draw() {
       fill(235, 228, 215, constrain(s.alpha + flicker, 10, 225) * (menuAlpha / 255));
       ellipse(s.x, s.y, s.size);
     }
-    fill(3, 6, 10, menuAlpha);
-    stroke(50, 80, 100, menuAlpha * 0.12);
-    strokeWeight(2);
+    
+    // === ΦΩΤΕΙΝΟ ΓΑΛΑΖΙΟ BACKGROUND (ECLIPSE GLOW) ===
+    // 1. Απαλά διαδοχικά επίπεδα εξωτερικής λάμψης (Atmospheric Glow Layers)
+    noFill();
+    for (let i = 25; i > 0; i--) {
+      stroke(0, 110, 220, (menuAlpha / 255) * (18 - i * 0.6));
+      strokeWeight(i * 2.5);
+      ellipse(centerX, eclipseY, eclipseRadius * 2);
+    }
+    
+    // 2. Η έντονη γαλάζια γραμμή στην ακμή του ορίζοντα
+    stroke(0, 145, 255, menuAlpha * 0.75);
+    strokeWeight(1.8);
     ellipse(centerX, eclipseY, eclipseRadius * 2);
+    
+    // 3. Το απόλυτο σκοτάδι του πλανήτη που γεμίζει το εσωτερικό της καμπύλης
+    fill(4, 7, 12, menuAlpha);
     noStroke();
+    ellipse(centerX, eclipseY, eclipseRadius * 2);
+    // =================================================
   }
   if (!isStarted) {
     textAlign(CENTER, CENTER); fill(220, 235, 255, 245); textSize(25);
@@ -219,7 +234,6 @@ function onCountryChange() {
 }
 
 function fetchAirData(lat, lon) {
-  // Χρήση του CORS Proxy για να παρακάμψουμε το πρόβλημα ασφαλείας του Browser
   const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5`;
   fetch('https://corsproxy.io/?' + encodeURIComponent(url))
     .then(r => r.json())
