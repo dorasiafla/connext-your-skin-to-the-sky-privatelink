@@ -167,7 +167,7 @@ function draw() {
     textAlign(CENTER, CENTER); fill(220, 235, 255, 245); textSize(25);
     text("Connect your skin to the sky.", centerX, centerY - 100);
     fill(160, 180, 200, 210); textSize(11);
-    text("L O C A L   A I R   P O L L U T I O N   D I S R U P T S   T H E   S A T E L L I T E   B E A M S", centerX, centerY - 45);
+    text("L O C A L  A I R  P O L L U T I O N  D I S R U P T S  T H E  S A T E L L I T E  B E A M S", centerX, centerY - 45);
     return;
   }
   push();
@@ -219,8 +219,11 @@ function onCountryChange() {
 }
 
 function fetchAirData(lat, lon) {
-  fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5`)
-    .then(r => r.json()).then(d => { if (d.current) pm25 = d.current.pm2_5; })
+  // Χρήση του CORS Proxy για να παρακάμψουμε το πρόβλημα ασφαλείας του Browser
+  const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5`;
+  fetch('https://corsproxy.io/?' + encodeURIComponent(url))
+    .then(r => r.json())
+    .then(d => { if (d.current) pm25 = d.current.pm2_5; })
     .catch(() => pm25 = floor(random(8, 25)));
 }
 
