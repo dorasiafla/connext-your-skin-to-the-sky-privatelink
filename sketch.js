@@ -34,7 +34,7 @@ const REAL_SATELLITES = [
   { name: "SENTINEL-2A", period: 6000000, inclination: 98.5, phase: 1.5 },
   { name: "SENTINEL-2B", period: 6000000, inclination: 98.5, phase: 3.6 },
   { name: "SENTINEL-3A", period: 6060000, inclination: 98.6, phase: 5.1 },
-  { name: "SENTINEL-3P", period: 6060000, inclination: 98.7, phase: 2.3 },
+  { name: "SENTINEL-5P", period: 6060000, inclination: 98.7, phase: 2.3 },
   { name: "GPM-CORE", period: 5590000, inclination: 65.0, phase: 1.7 },
   { name: "CRYOSAT 2", period: 6000000, inclination: 92.0, phase: 5.3 },
   { name: "CHUANXIN-16", period: 5800000, inclination: 50.0, phase: 2.4 },
@@ -80,7 +80,7 @@ function setup() {
   countrySelect.style('-webkit-appearance', 'none');
   countrySelect.style('background', '#000000');
   countrySelect.style('color', 'rgba(235, 228, 215, 0.85)');
-  countrySelect.style('border', '1px solid rgba(0, 150, 255, 0.15)');
+  countrySelect.style('border', '1px solid rgba(135, 206, 235, 0.25)');
   countrySelect.style('padding', '10px 30px');
   countrySelect.style('font-family', 'Arial, sans-serif');
   countrySelect.style('font-size', '12px');
@@ -114,10 +114,10 @@ function setup() {
 function injectCSS() {
   let styleEl = document.createElement('style');
   styleEl.innerHTML = `
-    #zoom-panel { position: fixed; bottom: 32px; right: 32px; display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.55); border: 1px solid rgba(0, 150, 255, 0.18); border-radius: 24px; padding: 10px 20px 10px 22px; font-family: 'Courier New', monospace; font-size: 11px; color: rgba(0, 180, 255, 0.75); backdrop-filter: blur(8px); z-index: 999; }
-    #zoom-slider { -webkit-appearance: none; width: 110px; height: 2px; background: rgba(0, 150, 255, 0.22); }
-    #zoom-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: rgba(0, 160, 255, 0.85); }
-    #zoom-close { background: none; border: none; color: rgba(0, 180, 255, 0.5); cursor: pointer; }
+    #zoom-panel { position: fixed; bottom: 32px; right: 32px; display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.55); border: 1px solid rgba(135, 206, 235, 0.25); border-radius: 24px; padding: 10px 20px 10px 22px; font-family: 'Courier New', monospace; font-size: 11px; color: rgba(135, 206, 235, 0.85); backdrop-filter: blur(8px); z-index: 999; }
+    #zoom-slider { -webkit-appearance: none; width: 110px; height: 2px; background: rgba(135, 206, 235, 0.3); }
+    #zoom-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: rgba(135, 206, 235, 0.9); }
+    #zoom-close { background: none; border: none; color: rgba(135, 206, 235, 0.6); cursor: pointer; }
   `;
   document.head.appendChild(styleEl);
 }
@@ -157,26 +157,11 @@ function draw() {
       fill(235, 228, 215, constrain(s.alpha + flicker, 10, 225) * (menuAlpha / 255));
       ellipse(s.x, s.y, s.size);
     }
-    
-    // === ΦΩΤΕΙΝΟ ΓΑΛΑΖΙΟ BACKGROUND (ECLIPSE GLOW) ===
-    // 1. Απαλά διαδοχικά επίπεδα εξωτερικής λάμψης (Atmospheric Glow Layers)
-    noFill();
-    for (let i = 25; i > 0; i--) {
-      stroke(0, 110, 220, (menuAlpha / 255) * (18 - i * 0.6));
-      strokeWeight(i * 2.5);
-      ellipse(centerX, eclipseY, eclipseRadius * 2);
-    }
-    
-    // 2. Η έντονη γαλάζια γραμμή στην ακμή του ορίζοντα
-    stroke(0, 145, 255, menuAlpha * 0.75);
-    strokeWeight(1.8);
+    fill(3, 6, 10, menuAlpha);
+    stroke(50, 80, 100, menuAlpha * 0.12);
+    strokeWeight(2);
     ellipse(centerX, eclipseY, eclipseRadius * 2);
-    
-    // 3. Το απόλυτο σκοτάδι του πλανήτη που γεμίζει το εσωτερικό της καμπύλης
-    fill(4, 7, 12, menuAlpha);
     noStroke();
-    ellipse(centerX, eclipseY, eclipseRadius * 2);
-    // =================================================
   }
   if (!isStarted) {
     textAlign(CENTER, CENTER); fill(220, 235, 255, 245); textSize(25);
@@ -188,7 +173,7 @@ function draw() {
   push();
   translate(centerX, centerY);
   scale(userZoom);
-  stroke(0, 120, 255, 40); noFill(); strokeWeight(1.5); circle(0, 0, fixedRadius * 2);
+  stroke(135, 206, 235, 50); noFill(); strokeWeight(1.5); circle(0, 0, fixedRadius * 2);
   let targetCountry = countryData[currentCountryName];
   for (let satData of REAL_SATELLITES) {
     drawRealisticSatellite(satData.name, satData, targetCountry);
@@ -213,13 +198,13 @@ function drawRealisticSatellite(name, satData, country) {
       let flicker = noise(satData.phase + frameCount * 0.1, f * 0.1);
       let alphaMod = (flicker < disruption) ? map(flicker, 0, disruption, 0.05, 0.8) : 1.0;
       let baseAlpha = map(pow(1 - (f/65), 1.2), 0, 1, 0, 255) * alphaMod;
-      stroke(0, 100, 255, baseAlpha * 0.2); strokeWeight(satelliteThickness * (1 - f/65) * 3.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
-      stroke(0, 180, 255, baseAlpha * 0.6); strokeWeight(satelliteThickness * (1 - f/65) * 1.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
+      stroke(100, 190, 240, baseAlpha * 0.2); strokeWeight(satelliteThickness * (1 - f/65) * 3.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
+      stroke(135, 206, 235, baseAlpha * 0.6); strokeWeight(satelliteThickness * (1 - f/65) * 1.5); line(pos1.x, pos1.y, pos2.x, pos2.y);
       stroke(255, 255, 255, baseAlpha * 0.9); strokeWeight(satelliteThickness * (1 - f/65) * 0.4); line(pos1.x, pos1.y, pos2.x, pos2.y);
     }
   }
   if (dist(currentPos.x, currentPos.y, 0, 0) < fixedRadius) {
-    fill(130, 225, 255, 200);
+    fill(135, 206, 235, 200);
     noStroke(); textFont('Courier New'); textSize(9); text(name, currentPos.x + 10, currentPos.y);
   }
 }
